@@ -9,8 +9,15 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PUBLIC_DIR = os.path.join(BASE_DIR, 'public')
 
 app = Flask(__name__, static_folder=PUBLIC_DIR, static_url_path='')
+
+# --- ALWAYSDATA UCHUN MUHIM QATOR ---
+# Alwaysdata serveri (WSGI) loyihani ishga tushirishda "application" degan o'zgaruvchini qidiradi.
+application = app 
+# ------------------------------------
+
 CORS(app)
 # Use eventlet for better WebRTC signaling concurrency; install eventlet in requirements
+# DIQQAT: requirements.txt faylida 'eventlet' bo'lishi shart!
 socketio = SocketIO(app, cors_allowed_origins='*', async_mode='eventlet')
 
 # In-memory data
@@ -226,7 +233,8 @@ def on_disconnect():
 
 
 if __name__ == '__main__':
-    # Try to start server, but if port is in use try a few alternatives and print helpful messages.
+    # Bu qism faqat kompyuteringizda ishlaganda ishlaydi. 
+    # Alwaysdata WSGI rejimida bu qismni o'tkazib yuboradi va to'g'ridan-to'g'ri 'application' o'zgaruvchisini oladi.
     start_port = int(os.environ.get('PORT', 5000))
     max_tries = 10
     started = False
