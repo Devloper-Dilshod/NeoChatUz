@@ -276,7 +276,7 @@ function showEnableAudioPrompt() {
   if (document.getElementById('enableAudioBtn')) return;
   const btn = document.createElement('button');
   btn.id = 'enableAudioBtn';
-  btn.textContent = 'Dasturchi bilan bog\'lanish uchun pastga tushing.';
+  btn.textContent = 'Dasturchi bilan bog\'lanish uchun pastga tushing';
   btn.style.position = 'fixed';
   btn.style.left = '50%';
   btn.style.bottom = '16px';
