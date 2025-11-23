@@ -24,12 +24,12 @@ let searchDotsInterval = null;
 let connectTimeout = null;
 
 function setOnlineCount(n) {
-  // server now sends an object { total, ready, sample }
+  // server may send an object { total, ready, sample } — show only total (simple number)
   if (typeof n === 'object' && n !== null) {
-    onlineCountEl.textContent = `${n.ready}/${n.total}`;
+    onlineCountEl.textContent = String(n.total || 0);
     return;
   }
-  onlineCountEl.textContent = n;
+  onlineCountEl.textContent = String(n || 0);
 }
 
 // We'll attach socket event handlers after the socket connection is created.

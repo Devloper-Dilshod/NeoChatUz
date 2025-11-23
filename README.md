@@ -18,11 +18,14 @@ cd E:/Frontend/Edd_Academy/Projects/RealTime
 npm install
 ```
 
-2. Start the server:
+2. Start the server (Python/Flask version):
 
 ```powershell
-npm start
+python -m pip install -r requirements.txt
+python app.py
 ```
+
+This project includes a Node version but the primary server is now a Flask app (`app.py`). The frontend remains in `public/` and the Flask server serves it.
 
 3. Open http://localhost:3000 in two different browsers or devices and click `Start` to connect.
 
@@ -91,9 +94,9 @@ alwaysdata supports Node.js apps. To prepare this app for deployment there:
 
 3. Push the project to a git repo and connect it in alwaysdata (or upload files). In alwaysdata's dashboard, set the Node version and the start command to `npm start`.
 
-4. Set environment variables on alwaysdata as needed (for production, set `NODE_ENV=production` and `ENABLE_NGROK=0`).
+4. Set environment variables on alwaysdata as needed (for production, set `ENABLE_NGROK=0` and `PORT` as provided by alwaysdata).
 
 5. The server will run on the host/port provided by alwaysdata; ensure your `server.js` uses `process.env.PORT` (it does). Static files are served from `/public`.
 
-Notes: TURN servers are still recommended in production for consistent media connectivity across restrictive networks.
+Notes: TURN servers are still recommended in production for consistent media connectivity across restrictive networks. When deploying on alwaysdata, ensure you select a Python app, install requirements, and run `python app.py` as the start command (or use the WSGI runner with eventlet support).
 
