@@ -24,12 +24,12 @@ let searchDotsInterval = null;
 let connectTimeout = null;
 
 function setOnlineCount(n) {
-  // server may send an object { total, ready, sample } — show only total (simple number)
+  // server now sends an object { total, ready, sample }
   if (typeof n === 'object' && n !== null) {
-    onlineCountEl.textContent = String(n.total || 0);
+    onlineCountEl.textContent = `${n.ready}/${n.total}`;
     return;
   }
-  onlineCountEl.textContent = String(n || 0);
+  onlineCountEl.textContent = n;
 }
 
 // We'll attach socket event handlers after the socket connection is created.
@@ -276,7 +276,7 @@ function showEnableAudioPrompt() {
   if (document.getElementById('enableAudioBtn')) return;
   const btn = document.createElement('button');
   btn.id = 'enableAudioBtn';
-  btn.textContent = 'Dasturchi bilan bog\'lanish uchun pastga';
+  btn.textContent = 'Ovoz va video yoqish uchun teging';
   btn.style.position = 'fixed';
   btn.style.left = '50%';
   btn.style.bottom = '16px';
