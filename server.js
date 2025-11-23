@@ -5,6 +5,7 @@ const http = require('http').createServer(app);
 // Allow cross-origin socket.io connections so clients connecting via ngrok can reach the server
 const io = require('socket.io')(http, { cors: { origin: '*' } });
 
+// Alwaysdata kabi hostinglarda PORT qiymatini atrof-muhit o'zgaruvchisidan (process.env.PORT) olamiz.
 const PORT = process.env.PORT || 3000;
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -15,6 +16,8 @@ const peers = {}; // peers[socketId] = partnerSocketId
 const matchOf = {}; // matchOf[socketId] = matchId
 const usernames = {}; // usernames[socketId] = displayName
 const mediaReady = new Set(); // sockets that have granted camera/mic access
+
+let ngrokUrl = ''; // Endi ngrok-ni ishlatmaymiz, lekin /info endpointiga bo'sh satr qaytaramiz.
 
 function removeFromQueue(id) {
   const idx = waitingQueue.indexOf(id);
@@ -33,176 +36,127 @@ function cleanupPeer(id, notifyPartner = true) {
     const m = matchOf[partner];
     delete matchOf[partner];
     delete matchOf[id];
-    if (notifyPartner && io.sockets.sockets.get(partner)) {
-      io.to(partner).emit('partner-left');
+    if (notifyPartner) {
+      io.to(partner).emit('match_ended', { reason: 'partner_disconnected' });
     }
+    console.log(`Match ${m} ended between ${id} and ${partner}`);
   }
 }
 
-function tryMatchAll() {
-  // Shuffle waitingQueue and pair off randomly
-  // Filter out disconnected sockets first
-  for (let i = waitingQueue.length - 1; i >= 0; i--) {
-    const id = waitingQueue[i];
-    if (!io.sockets.sockets.get(id)) waitingQueue.splice(i, 1);
-  }
-
-  if (waitingQueue.length < 2) return;
-
-  // Shuffle using Fisher-Yates
-  for (let i = waitingQueue.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [waitingQueue[i], waitingQueue[j]] = [waitingQueue[j], waitingQueue[i]];
-  }
-
-  // Pair sequentially after shuffle
-  while (waitingQueue.length >= 2) {
-    const a = waitingQueue.shift();
-    const b = waitingQueue.shift();
-
-    // validate both are connected and not already peers
-    if (!io.sockets.sockets.get(a) || !io.sockets.sockets.get(b) || peers[a] || peers[b]) {
-      // if invalid, put valid one back
-      if (io.sockets.sockets.get(a) && !peers[a]) waitingQueue.push(a);
-      if (io.sockets.sockets.get(b) && !peers[b]) waitingQueue.push(b);
-      continue;
+function tryMatch(id) {
+  if (waitingQueue.length > 0) {
+    const partner = waitingQueue.shift();
+    if (partner === id) {
+      // should not happen, but prevents self-match
+      console.error('Self-match attempted!');
+      waitingQueue.unshift(id);
+      return;
     }
-
-    // create match
-    const matchId = makeMatchId(a, b);
-    peers[a] = b;
-    peers[b] = a;
-    matchOf[a] = matchId;
-    matchOf[b] = matchId;
-
-    // notify both clients; choose initiator randomly
-    const initiatorForA = Math.random() < 0.5;
-      io.to(a).emit('found', { partnerId: b, initiator: initiatorForA, matchId, partnerName: usernames[b] || null });
-      io.to(b).emit('found', { partnerId: a, initiator: !initiatorForA, matchId, partnerName: usernames[a] || null });
-    console.log(`Matched ${a} <-> ${b} (${matchId})`);
-  }
-}
-
-app.use((req, res, next) => {
-  res.setHeader("ngrok-skip-browser-warning", "true");
-  next();
-});
-
-
-function getOnlineCount() {
-  try {
-    return io.of('/').sockets.size;
-  } catch (e) {
-    return 0;
+    
+    const matchId = makeMatchId(id, partner);
+    peers[id] = partner;
+    peers[partner] = id;
+    matchOf[id] = matchId;
+    matchOf[partner] = matchId;
+    
+    console.log(`Match found: ${id} vs ${partner} (Match ID: ${matchId})`);
+    
+    // Notify client A (the current socket)
+    io.to(id).emit('match_found', { matchId, partnerId: partner, partnerUsername: usernames[partner] });
+    // Notify client B (the waiting socket)
+    io.to(partner).emit('match_found', { matchId, partnerId: id, partnerUsername: usernames[id] });
+  } else {
+    waitingQueue.push(id);
+    console.log(`${id} added to queue. Queue size: ${waitingQueue.length}`);
   }
 }
 
 function broadcastOnlineCount() {
-  // emit both total connected sockets and number of users who granted media access
-  const total = getOnlineCount();
-  const ready = mediaReady.size;
-  // also include a small sample of ready usernames for UI if needed
-  const sample = Array.from(mediaReady).slice(0, 10).map(id => ({ id, name: usernames[id] || null }));
-  io.emit('online-count', { total, ready, sample });
+  io.emit('online_count', { count: io.engine.clientsCount });
 }
 
-// Expose current public ngrok URL (if started). We'll set this when ngrok is launched.
-let ngrokUrl = null;
-
+// Endpoint for client to query server info (like ngrok URL)
 app.get('/info', (req, res) => {
-  res.json({ ngrokUrl, port: PORT });
+  res.json({ ngrokUrl });
 });
 
 io.on('connection', (socket) => {
-  console.log('connect', socket.id);
-  usernames[socket.id] = `User-${socket.id.slice(0,5)}`;
+  console.log('connection', socket.id);
+  
   broadcastOnlineCount();
 
-  socket.on('find', () => {
-    // If already paired, ignore
-    if (peers[socket.id]) return;
-    // Avoid duplicate in queue
-    if (!waitingQueue.includes(socket.id)) {
-      waitingQueue.push(socket.id);
-    }
-    socket.emit('searching');
-    tryMatchAll();
+  socket.on('set_username', (data) => {
+    const { username } = data;
+    usernames[socket.id] = username || 'Anon';
+    console.log(`Username set for ${socket.id}: ${usernames[socket.id]}`);
   });
 
-  socket.on('register', (data) => {
-    const name = String(data && data.name || '').trim().slice(0,32);
-    if (name) {
-      usernames[socket.id] = name;
-      socket.emit('registered', { name });
-      broadcastOnlineCount();
+  socket.on('media_ready', () => {
+    mediaReady.add(socket.id);
+    console.log(`${socket.id} media ready`);
+    
+    if (peers[socket.id]) {
+      // If already matched, signal the partner media is ready
+      io.to(peers[socket.id]).emit('partner_media_ready');
     }
   });
 
-  socket.on('media-ready', (data) => {
-    // data.ready = true/false
-    const ready = !!(data && data.ready);
-    if (ready) mediaReady.add(socket.id);
-    else mediaReady.delete(socket.id);
-    broadcastOnlineCount();
+  socket.on('start_search', () => {
+    console.log('start_search', socket.id);
+    
+    // Ensure media is ready before matching
+    if (!mediaReady.has(socket.id)) {
+      console.log(`${socket.id} started search, but media not ready. Waiting...`);
+      // We could optionally emit an event here to tell the client to wait
+      return;
+    }
+
+    // if user is already matched, end the current match first
+    cleanupPeer(socket.id, true);
+
+    // ensure the stopper is removed from any queue
+    removeFromQueue(socket.id);
+
+    tryMatch(socket.id);
   });
 
-  socket.on('stop-search', () => {
-    // remove from queue if present
+  socket.on('stop_search', () => {
+    console.log('stop_search', socket.id);
     removeFromQueue(socket.id);
   });
-
-  socket.on('skip', () => {
-    // user wants to skip current partner and find a new one
-    const partner = peers[socket.id];
-    const myMatch = matchOf[socket.id];
-    // remove both from peers mapping
-    if (partner) {
-      // notify partner that we've left; they should go to searching
-      if (io.sockets.sockets.get(partner)) {
-        io.to(partner).emit('partner-left');
-      }
-      delete peers[partner];
-      delete matchOf[partner];
-    }
-    delete peers[socket.id];
-    delete matchOf[socket.id];
-
-    // Put the skipper back into queue and try rematching
-    if (!waitingQueue.includes(socket.id)) waitingQueue.push(socket.id);
-    tryMatchAll();
-  });
-
-  // emit enriched online-count including count and simple list of names (capped)
-  // small helper to send more info when requested
-  socket.on('whoami', () => {
-    socket.emit('whoami', { id: socket.id, name: usernames[socket.id] });
-  });
-
-  socket.on('offer', (data) => {
-    const { to, sdp, matchId } = data;
-    // only forward if the matchId is still valid for both peers
-    if (!matchId || matchOf[socket.id] !== matchId || matchOf[to] !== matchId) return;
-    io.to(to).emit('offer', { from: socket.id, sdp, matchId });
-  });
-
-  socket.on('answer', (data) => {
-    const { to, sdp, matchId } = data;
-    if (!matchId || matchOf[socket.id] !== matchId || matchOf[to] !== matchId) return;
-    io.to(to).emit('answer', { from: socket.id, sdp, matchId });
-  });
-
-  socket.on('ice-candidate', (data) => {
-    const { to, candidate, matchId } = data;
-    if (!matchId || matchOf[socket.id] !== matchId || matchOf[to] !== matchId) return;
-    io.to(to).emit('ice-candidate', { from: socket.id, candidate, matchId });
-  });
-
-  socket.on('stop', () => {
-    // hang up and cleanup both sides; partner will be notified and can search again
+  
+  socket.on('end_match', () => {
+    console.log('end_match', socket.id);
     cleanupPeer(socket.id, true);
     // ensure the stopper is removed from any queue
     removeFromQueue(socket.id);
   });
+
+  // WebRTC Signaling Handlers
+  socket.on('webrtc_offer', (data) => {
+    const { sdp } = data;
+    const partner = peers[socket.id];
+    if (partner) {
+      io.to(partner).emit('webrtc_offer', { sdp, senderId: socket.id });
+    }
+  });
+
+  socket.on('webrtc_answer', (data) => {
+    const { sdp } = data;
+    const partner = peers[socket.id];
+    if (partner) {
+      io.to(partner).emit('webrtc_answer', { sdp, senderId: socket.id });
+    }
+  });
+
+  socket.on('webrtc_ice_candidate', (data) => {
+    const { candidate } = data;
+    const partner = peers[socket.id];
+    if (partner) {
+      io.to(partner).emit('webrtc_ice_candidate', { candidate, senderId: socket.id });
+    }
+  });
+
 
   socket.on('disconnect', () => {
     console.log('disconnect', socket.id);
@@ -221,24 +175,5 @@ http.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);
 });
 
-// Optionally start ngrok automatically to expose the local server.
-// Controls:
-//  - Set environment variable ENABLE_NGROK=0 to disable automatic ngrok start.
-//  - Optionally set NGROK_AUTHTOKEN to use your ngrok auth token.
-;(async () => {
-  if (process.env.ENABLE_NGROK === '0') return;
-  try {
-    const ngrok = require('ngrok');
-    // Use the `proto: 'http'` option instead of the deprecated/unsupported
-    // `bind_tls` flag. Recent ngrok versions expose both HTTP and HTTPS
-    // endpoints for an HTTP proto, so no extra bind flag is needed.
-    const opts = { addr: PORT, proto: 'http' };
-    if (process.env.NGROK_AUTHTOKEN) opts.authtoken = process.env.NGROK_AUTHTOKEN;
-    console.log('Starting ngrok tunnel...');
-    ngrokUrl = await ngrok.connect(opts);
-    console.log('Ngrok public URL:', ngrokUrl);
-    console.log('Share this URL with friends to connect: %s', ngrokUrl);
-  } catch (err) {
-    console.error('Ngrok failed to start (ensure ngrok package installed):', err.message || err);
-  }
-})();
+// ngrok ni ishga tushirish qismi olib tashlandi,
+// chunki u hostingda EACCES xatosiga sabab bo'layotgan edi.
