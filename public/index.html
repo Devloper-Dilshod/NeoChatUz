@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NeoChatUz</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/image.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <style>
+    /* Glass effect */
+    .glass {
+      backdrop-filter: blur(14px);
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    /* Neon border glow */
+    .neon {
+      box-shadow: 0 0 15px rgba(0, 170, 255, 0.6),
+      0 0 30px rgba(0, 170, 255, 0.4);
+    }
+    
+    /* 3D hover effect */
+    .hover-3d:hover {
+      transform: translateY(-6px) rotateX(3deg);
+      transition: 0.25s ease;
+    }
+    
+    /* Input text color */
+    input, textarea {
+      color: #000000 !important;
+      background-color: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 0.5rem 1rem;
+      border-radius: 0.75rem;
+      outline: none;
+      transition: 0.3s;
+    }
+    
+    input:focus {
+      border-color: #0ea5e9;
+      box-shadow: 0 0 10px rgba(14,165,233,0.5);
+      background-color: rgba(255,255,255,0.15);
+    }
+    
+    input::placeholder,
+    textarea::placeholder {
+      color: rgba(0,0,0,0.5) !important;
+    }
+    
+    /* Button hover animation */
+    .btn-hover:hover {
+      transform: scale(1.05);
+      transition: 0.3s;
+    }
+    
+    /* Footer Dasturchi button */
+    .developer-btn {
+      background: linear-gradient(90deg, #0ea5e9, #6366f1);
+      color: white;
+    }
+    
+    .developer-btn:hover {
+      transform: scale(1.1);
+      box-shadow: 0 0 15px rgba(14,165,233,0.7), 0 0 30px rgba(99,102,241,0.5);
+      transition: 0.3s;
+    }
+    
+    /* Smooth fade-in animation */
+    .fade-in {
+      opacity: 0;
+      animation: fadeIn 1s forwards;
+    }
+    
+    @keyframes fadeIn {
+      to { opacity: 1; }
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 text-white">
+  
+  <!-- HEADER -->
+  <header class="py-6 glass border-b border-white/10 fade-in">
+    <div class="max-w-7xl mx-auto px-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <!-- Logo o'zgartirilgan -->
+        <div class="w-11 h-11 rounded-full flex items-center justify-center shadow-xl neon overflow-hidden">
+          <img src="/images/image.png" alt="NeoChatUz Logo" class="w-full h-full object-cover">
+        </div>
+        
+        <div>
+          <div class="text-xl font-semibold tracking-wide">NeoChatUz</div>
+          <div class="text-xs text-sky-300 opacity-80">Tasodif bilan do'st ortiring!</div>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5 text-sky-300" fill="none" stroke="currentColor" stroke-width="2"
+        viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+        d="M18 8a6 6 0 11-12 0 6 6 0 0112 0zM12 14c-5 0-9 2.5-9 5v1h18v-1c0-2.5-4-5-9-5z"/>
+      </svg>
+      <span class="text-sm text-sky-200">Online:</span>
+      <div id="onlineCount" class="font-mono bg-slate-800/60 text-sky-200 px-3 py-1 rounded">0</div>
+    </div>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main class="flex-1 max-w-7xl mx-auto px-4 py-6 flex flex-col md:flex-row gap-6 fade-in">
+  
+  <!-- VIDEO SECTION -->
+  <section class="flex-1 flex flex-col items-center justify-start gap-6">
+    
+    <!-- NAME INPUT -->
+    
+    
+    <!-- VIDEO GRID -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+      
+      <div class="glass neon rounded-xl overflow-hidden relative shadow-2xl hover-3d">
+        <video id="localVideo" playsinline autoplay muted class="w-full h-full object-cover"></video>
+        <div class="absolute left-3 top-3 bg-black/40 px-3 py-1 rounded text-xs">Siz</div>
+      </div>
+      
+      <div class="glass neon rounded-xl overflow-hidden relative shadow-2xl hover-3d">
+        <video id="remoteVideo" playsinline autoplay class="w-full h-full object-cover"></video>
+        <div class="absolute left-3 top-3 bg-black/40 px-3 py-1 rounded text-xs" id="partnerLabel">Sherik</div>
+      </div>
+      
+    </div>
+    
+    <!-- CONTROL BUTTONS -->
+    <div class="flex items-center gap-4 mt-4 flex-wrap justify-center">
+      
+      <button id="stopBtn" disabled
+      class="px-6 py-3 rounded-xl bg-red-500/70 hover:bg-red-600 transition shadow-lg flex items-center gap-2 btn-hover">
+      <svg class="w-5 h-5" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+        d="M6 6h12v12H6z"/>
+      </svg>
+      To'xtatish
+    </button>
+    
+    <button id="startBtn"
+    class="px-8 py-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 transition shadow-xl neon flex items-center gap-2 font-semibold btn-hover">
+    <svg class="w-6 h-6" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round"
+      d="M5 3l14 9-14 9V3z"/>
+    </svg>
+    Boshlash
+  </button>
+  
+  <button id="skipBtn" disabled
+  class="px-6 py-3 rounded-xl bg-yellow-500/70 hover:bg-yellow-600 transition shadow-lg flex items-center gap-2 btn-hover">
+  <svg class="w-5 h-5" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round"
+    d="M5 4l10 8-10 8V4zM15 4l10 8-10 8V4z"/>
+  </svg>
+  Keyingi
+</button>
+</div>
+
+<div id="searching" class="mt-2 min-h-[46px] text-center text-sky-300"></div>
+
+</section>
+
+<!-- SIDEBAR -->
+<aside class="w-full md:w-80 flex flex-col gap-4">
+  
+  <div class="glass p-4 rounded-xl shadow-xl fade-in">
+    <h3 class="text-sky-200 font-semibold mb-2">Qanday foydalanish</h3>
+    <ul class="text-sm text-slate-200 space-y-2">
+      <li>1️⃣ Ismingizni kiriting.</li>
+      <li>2️⃣ Boshlash tugmasini bosing.</li>
+      <li>3️⃣ Tasodifiy sherik bilan video suhbatni boshlang.</li>
+      <li>⚠️ Shaxsiy ma’lumot bermang.</li>
+    </ul>
+  </div>
+  
+  <div class="glass p-3 text-xs text-slate-400 rounded-xl text-center">
+    NeoChatUz - bu sizga dunyo bo'ylab tasodifiy odamlar bilan video orqali bog'lanish imkonini beruvchi platforma. Iltimos, xavfsizlik qoidalariga rioya qiling va shaxsiy ma'lumotlaringizni oshkor qilmang.
+  </div>
+</aside>
+</main>
+
+<!-- FOOTER -->
+<footer class="p-6 text-center text-xs text-gray-400 flex flex-col items-center gap-2 fade-in">
+  <span>© 2025 NeoChatUz – All rights reserved</span>
+  <a href="https://t.me/dilshod_sayfiddinov" target="_blank"
+  class="px-4 py-2 rounded-xl developer-btn font-semibold">Dasturchi bilan bog'lanish</a>
+</footer>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/script.js"></script>
+</body>
+</html>

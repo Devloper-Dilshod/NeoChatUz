@@ -1,0 +1,14 @@
+{
+  "name": "realtime-random-video-chat",
+  "version": "1.0.0",
+  "description": "Real-time random video chat using Node, Express, Socket.IO and WebRTC",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
+    "ngrok": "^4.3.0"
+  }
+}

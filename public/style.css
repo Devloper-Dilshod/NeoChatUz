@@ -1,0 +1,93 @@
+/* public/style.css - small custom styles to complement Tailwind */
+html,body{height:100%;}
+/* Background gradient and subtle noise */
+body{background:radial-gradient(1200px 600px at 10% 10%, rgba(59,130,246,0.06), transparent 10%),
+  radial-gradient(1000px 500px at 90% 90%, rgba(99,102,241,0.06), transparent 10%),
+  linear-gradient(180deg,#030417 0%, #061025 60%);}
+video{background:transparent}
+
+/* make videos look nice on mobile */
+#localVideo, #remoteVideo{
+  /* Keep strict 16:9 aspect ratio across devices */
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 8px;
+  min-height: 120px;
+  max-height: 65vh; /* don't exceed most of viewport */
+}
+
+/* subtle searching text style */
+#searching{
+  font-weight:600;
+  letter-spacing:0.4px;
+  display:flex;
+  align-items:center;
+  gap:0.5rem;
+}
+
+.searching-text{font-weight:700;color:#7dd3fc}
+.search-dots{font-family: monospace;color:#7dd3fc}
+
+/* Glass panel */
+.glass-panel{
+  background: linear-gradient(135deg, rgba(255,255,255,0.02), rgba(255,255,255,0.03));
+  border: 1px solid rgba(255,255,255,0.04);
+  box-shadow: 0 8px 40px rgba(2,6,23,0.6);
+  backdrop-filter: blur(8px) saturate(120%);
+  overflow:hidden;
+  position:relative;
+}
+
+.glass-badge{
+  background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  padding:6px 8px;
+  border-radius:8px;
+  font-size:12px;
+  color:#bbf7ff;
+  border:1px solid rgba(255,255,255,0.04);
+}
+
+/* Hero start button */
+.start-hero{
+  background: radial-gradient(circle at 30% 30%, #60a5fa, #1e3a8a);
+  color:white;
+  padding:14px 28px;
+  border-radius:9999px;
+  font-weight:700;
+  box-shadow: 0 6px 30px rgba(59,130,246,0.25), 0 0 30px rgba(99,102,241,0.12) inset;
+  transform:translateZ(0);
+}
+.start-hero:hover{ transform:translateY(-3px) scale(1.02); }
+
+.control-btn{ padding:10px 14px;border-radius:10px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:#9fbff6 }
+.control-stop{ color:#ffb3b3 }
+.control-skip{ color:#ffe6a7 }
+
+/* Glowing focus for active connected video */
+.connected video{ box-shadow: 0 10px 60px rgba(99,102,241,0.35); transform:scale(1.01); }
+
+/* Searching loader: spinning ring */
+.loader-ring{ width:48px;height:48px;border-radius:50%;border:4px solid rgba(255,255,255,0.06);border-top-color:#60a5fa;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* small responsive tweaks */
+@media (max-width:768px){
+  /* mobile: keep 16:9 but limit height to viewport */
+  #localVideo,#remoteVideo{ max-height:50vh; min-height:100px }
+  .start-hero{padding:12px 22px}
+  .glass-panel{padding:6px}
+}
+
+/* pulse animation for a loader dot */
+@keyframes pulseDots {
+  0% { opacity: 0.2; transform: scale(0.9);} 
+  50% { opacity: 1; transform: scale(1.1);} 
+  100% { opacity: 0.2; transform: scale(0.9);} 
+}
+
+.loader-dots span{display:inline-block;margin:0 2px;animation:pulseDots 1s infinite}
+
+/* small transitions */
+video{transition:filter .25s ease, transform .25s ease}
+.connected { box-shadow: 0 8px 30px rgba(0,0,0,0.6); }
