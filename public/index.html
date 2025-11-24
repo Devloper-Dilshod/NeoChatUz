@@ -55,7 +55,6 @@
       border-radius: 12px;
     }
 
-    /* Mobile optimizatsiya */
     @media (max-width: 768px) {
       .mobile-stack {
         flex-direction: column;
@@ -68,7 +67,6 @@
       }
     }
 
-    /* Modal styling */
     .modal-overlay {
       background: rgba(0, 0, 0, 0.8);
       backdrop-filter: blur(5px);
@@ -79,7 +77,6 @@
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
-    /* Loading animation */
     .pulse-ring {
       animation: pulseRing 2s ease-in-out infinite;
     }
@@ -296,7 +293,7 @@
   </footer>
 
   <script>
-// script.js - To'liq responsive va modal bilan
+// script.js - AlwaysData uchun
 let socket = null;
 
 // UI elements
@@ -321,10 +318,15 @@ let isInitiator = false;
 let matchId = null;
 let isSearching = false;
 
-// Socket ulanishi
+// Socket ulanishi - AlwaysData uchun
 function initSocket() {
-    socket = io('http://localhost:5000', {
-        transports: ['websocket', 'polling']
+    // AlwaysData domaini bilan ulanamiz
+    const socketUrl = window.location.origin;
+    console.log('🔗 Socket ulanmoqda:', socketUrl);
+    
+    socket = io(socketUrl, {
+        transports: ['websocket', 'polling'],
+        timeout: 10000
     });
 
     socket.on('connect', () => {
@@ -337,6 +339,11 @@ function initSocket() {
     socket.on('disconnect', () => {
         console.log('❌ Server bilan aloqa uzildi');
         updateStatus('disconnected');
+    });
+
+    socket.on('connect_error', (error) => {
+        console.error('Socket ulanish xatosi:', error);
+        updateStatus('error');
     });
 
     socket.on('online-count', (data) => {
@@ -416,7 +423,6 @@ function initSocket() {
         remoteStatusEl.textContent = 'Suhbat to\'xtatildi';
         remoteStatusEl.className = 'absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-red-400';
         resetToInitialState();
-        // Sherik to'xtatganda, o'zimiz ham qidirishni boshlaymiz
         startSearching();
     });
 }
@@ -612,14 +618,11 @@ async function startSearchProcess() {
 // TO'XTATISH - Faqat o'zini to'xtatadi, sherik qidirmaydi
 stopBtn.addEventListener('click', () => {
     if (partnerId && matchId) {
-        // Agar sherik bilan ulangan bo'lsa
         socket.emit('stop-call', { to: partnerId, matchId: matchId });
     } else if (isSearching) {
-        // Agar sherik qidiryotgan bo'lsa
         socket.emit('stop-search');
     }
     
-    // Faqat o'z holatini yangilash
     resetToInitialState();
     showMessage('Siz suhbatni to\'xtatdingiz', 'info');
 });
@@ -630,7 +633,6 @@ skipBtn.addEventListener('click', () => {
         socket.emit('skip', { to: partnerId, matchId: matchId });
     }
     resetToInitialState();
-    // Skip bosganda darrov yangi sherik qidirish
     startSearching();
 });
 
@@ -717,7 +719,6 @@ window.addEventListener('load', () => {
         showNameModal();
     }
 
-    // Enter bosganda name saqlash
     nameInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             saveName();

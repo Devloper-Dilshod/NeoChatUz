@@ -1,4 +1,4 @@
-# server.py - AlwaysData uchun
+# server.py
 import os
 import logging
 from flask import Flask, request, jsonify, send_from_directory
@@ -11,21 +11,17 @@ import time
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__, static_folder='public', static_url_path='')
+app = Flask(__name__, static_folder='public')
 app.config['SECRET_KEY'] = 'neochatuz-secret-key-2025'
 
-# CORS - AlwaysData domainlari uchun
-CORS(app, resources={r"/*": {"origins": [
-    "https://dilshodjon.alwaysdata.net",
-    "http://dilshodjon.alwaysdata.net",
-    "https://www.dilshodjon.alwaysdata.net"
-]}})
+# CORS
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # SocketIO
 socketio = SocketIO(app, 
                    cors_allowed_origins="*",
-                   logger=True,
-                   engineio_logger=True)
+                   logger=False,
+                   engineio_logger=False)
 
 # User management
 users = {}
@@ -55,6 +51,7 @@ def handle_disconnect():
             partner_id = match['user2'] if match['user1'] == request.sid else match['user1']
             if partner_id in users:
                 emit('partner-disconnected', room=partner_id)
+                # Sherikni kutish ro'yxatiga qo'shish
                 if partner_id not in waiting_users:
                     waiting_users.append(partner_id)
                     emit('searching', room=partner_id)
@@ -143,19 +140,23 @@ def handle_skip(data):
         user1 = match['user1']
         user2 = match['user2']
         
+        # Skip qilgan foydalanuvchini waiting ga qaytarish
         if request.sid not in waiting_users:
             waiting_users.append(request.sid)
             emit('searching', room=request.sid)
         
+        # Sherigiga skip xabari yuborish
         partner_id = user2 if user1 == request.sid else user1
         if partner_id in users:
             emit('partner-skipped', room=partner_id)
+            # Sherikni ham waiting ga qaytarish
             if partner_id not in waiting_users:
                 waiting_users.append(partner_id)
                 emit('searching', room=partner_id)
         
         del active_matches[match_id]
     
+    # Darrov yangi sherik qidirish
     find_partner()
 
 @socketio.on('stop-call')
@@ -169,14 +170,18 @@ def handle_stop_call(data):
         match = active_matches[match_id]
         partner_id = match['user2'] if match['user1'] == request.sid else match['user1']
         
+        # Faqat o'zini to'xtatish, sherikni qoldirish
+        # Sherigiga stop xabari yuborish
         if partner_id in users:
             emit('partner-stopped', room=partner_id)
+            # Sherikni kutish ro'yxatiga qo'shish
             if partner_id not in waiting_users:
                 waiting_users.append(partner_id)
                 emit('searching', room=partner_id)
         
         del active_matches[match_id]
     
+    # O'zini kutish ro'yxatidan olib tashlash
     if request.sid in waiting_users:
         waiting_users.remove(request.sid)
     
@@ -187,8 +192,10 @@ def find_partner():
     if len(waiting_users) < 2:
         return
     
+    # Barcha kutayotgan foydalanuvchilarni aralashtirish
     random.shuffle(waiting_users)
     
+    # Juftlar yaratish
     pairs = []
     for i in range(0, len(waiting_users) - 1, 2):
         user1 = waiting_users[i]
@@ -197,6 +204,7 @@ def find_partner():
         if user1 in users and user2 in users:
             pairs.append((user1, user2))
     
+    # Har bir juft uchun match yaratish
     for user1, user2 in pairs:
         match_id = f"match_{int(time.time())}_{random.randint(1000,9999)}"
         
@@ -207,6 +215,7 @@ def find_partner():
             'user2_name': users[user2]['name']
         }
         
+        # User1 ga ma'lumot
         emit('found', {
             'partnerId': user2,
             'partnerName': users[user2]['name'],
@@ -214,6 +223,7 @@ def find_partner():
             'initiator': True
         }, room=user1)
         
+        # User2 ga ma'lumot
         emit('found', {
             'partnerId': user1,
             'partnerName': users[user1]['name'],
@@ -223,6 +233,7 @@ def find_partner():
         
         logger.info(f"🤝 ULANDI: {users[user1]['name']} va {users[user2]['name']}")
     
+    # Waiting ro'yxatini yangilash
     for user1, user2 in pairs:
         if user1 in waiting_users:
             waiting_users.remove(user1)
@@ -238,7 +249,7 @@ def update_online_count():
     }
     socketio.emit('online-count', count_data)
 
-# Routes
+# Static fayllar
 @app.route('/')
 def serve_index():
     return send_from_directory(app.static_folder, 'index.html')
@@ -247,20 +258,11 @@ def serve_index():
 def serve_static(path):
     return send_from_directory(app.static_folder, path)
 
-@app.route('/health')
-def health_check():
-    return jsonify({
-        'status': 'healthy',
-        'service': 'NeoChatUz',
-        'users_online': len(users),
-        'timestamp': time.time()
-    })
-
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    logger.info(f"🚀 NEOCHATUZ SERVER ISHGA TUSHMODA...")
-    logger.info(f"📡 Port: {port}")
+    logger.info("🚀 NEOCHATUZ SERVER ISHGA TUSHMODA...")
+    logger.info("📡 http://localhost:5000")
     socketio.run(app, 
                  host='0.0.0.0', 
-                 port=port, 
-                 debug=False)
+                 port=5000, 
+                 debug=False, 
+                 allow_unsafe_werkzeug=True)

@@ -1,0 +1,13 @@
+RewriteEngine On
+
+# Socket.IO uchun proxy
+RewriteCond %{HTTP:Upgrade} =websocket [NC]
+RewriteRule /(.*) ws://localhost:5000/$1 [P,L]
+
+RewriteCond %{HTTP:Upgrade} !=websocket [NC]
+RewriteRule /(.*) http://localhost:5000/$1 [P,L]
+
+# Static fayllar
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ http://localhost:5000/$1 [P,L]
