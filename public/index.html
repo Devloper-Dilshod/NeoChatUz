@@ -6,7 +6,7 @@
   <title>NeoChatUz</title>
   <link rel="icon" type="image/png" sizes="32x32" href="/images/image.png">
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
   
   <style>
     .glass {
@@ -174,7 +174,7 @@
       </div>
       
       <div class="flex items-center gap-2">
-        <div class="w-2 h-2 bg-green-400 rounded-full pulse-ring"></div>
+        <div id="connectionStatus" class="w-2 h-2 bg-red-400 rounded-full"></div>
         <span class="text-sm text-sky-200 hidden sm:block">Online:</span>
         <div id="onlineCount" class="font-mono bg-slate-800/60 text-sky-200 px-3 py-1 rounded-lg">0</div>
       </div>
@@ -293,11 +293,12 @@
   </footer>
 
   <script>
-// script.js - AlwaysData uchun
+// NeoChatUz - AlwaysData uchun optimallashtirilgan
 let socket = null;
 
 // UI elements
 const onlineCountEl = document.getElementById('onlineCount');
+const connectionStatusEl = document.getElementById('connectionStatus');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const searchingEl = document.getElementById('searching');
@@ -317,114 +318,155 @@ let partnerId = null;
 let isInitiator = false;
 let matchId = null;
 let isSearching = false;
+let reconnectAttempts = 0;
+const maxReconnectAttempts = 5;
 
 // Socket ulanishi - AlwaysData uchun
 function initSocket() {
-    // AlwaysData domaini bilan ulanamiz
-    const socketUrl = window.location.origin;
-    console.log('🔗 Socket ulanmoqda:', socketUrl);
-    
-    socket = io(socketUrl, {
-        transports: ['websocket', 'polling'],
-        timeout: 10000
-    });
-
-    socket.on('connect', () => {
-        console.log('✅ Serverga ulandik!');
-        updateStatus('connected');
-        const savedName = localStorage.getItem('neochat_name') || 'Mehmon';
-        socket.emit('register', { name: savedName });
-    });
-
-    socket.on('disconnect', () => {
-        console.log('❌ Server bilan aloqa uzildi');
-        updateStatus('disconnected');
-    });
-
-    socket.on('connect_error', (error) => {
-        console.error('Socket ulanish xatosi:', error);
-        updateStatus('error');
-    });
-
-    socket.on('online-count', (data) => {
-        onlineCountEl.textContent = data.total;
-    });
-
-    socket.on('searching', () => {
-        showSearching();
-    });
-
-    socket.on('found', async (data) => {
-        isSearching = false;
-        partnerId = data.partnerId;
-        isInitiator = data.initiator;
-        matchId = data.matchId;
+    try {
+        const socketUrl = window.location.origin;
+        console.log('🔗 Socket ulanmoqda:', socketUrl);
         
-        partnerLabel.textContent = data.partnerName;
-        skipBtn.disabled = false;
-        remoteStatusEl.textContent = 'Sherik topildi';
-        remoteStatusEl.className = 'absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-green-400';
-        
-        stopSearching();
-        showConnecting();
-        await startCall();
-    });
+        socket = io(socketUrl, {
+            transports: ['websocket', 'polling'],
+            timeout: 10000,
+            reconnection: true,
+            reconnectionAttempts: maxReconnectAttempts,
+            reconnectionDelay: 1000,
+            forceNew: true
+        });
 
-    socket.on('offer', async (data) => {
-        if (!pc) await startCall();
-        try {
-            await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            socket.emit('answer', { 
-                to: data.from, 
-                sdp: pc.localDescription, 
-                matchId: data.matchId 
-            });
-        } catch (err) {
-            console.error('Offer error:', err);
-        }
-    });
+        socket.on('connect', () => {
+            console.log('✅ Serverga ulandik! Socket ID:', socket.id);
+            updateConnectionStatus('connected');
+            reconnectAttempts = 0;
+            
+            const savedName = localStorage.getItem('neochat_name') || 'Mehmon';
+            socket.emit('register', { name: savedName });
+            showMessage('Serverga ulandi!', 'success');
+        });
 
-    socket.on('answer', async (data) => {
-        try {
-            await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-        } catch (err) {
-            console.error('Answer error:', err);
-        }
-    });
-
-    socket.on('ice-candidate', async (data) => {
-        try {
-            if (data.candidate) {
-                await pc.addIceCandidate(data.candidate);
+        socket.on('disconnect', (reason) => {
+            console.log('❌ Server bilan aloqa uzildi:', reason);
+            updateConnectionStatus('disconnected');
+            
+            if (reason === 'io server disconnect') {
+                // Server intentionally disconnected
+                socket.connect();
             }
-        } catch (err) {
-            console.warn('ICE candidate error:', err);
-        }
-    });
+        });
 
-    socket.on('partner-disconnected', () => {
-        showMessage('Sherik aloqani uzdi', 'info');
-        remoteStatusEl.textContent = 'Sherik chiqdi';
-        remoteStatusEl.className = 'absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-red-400';
-        resetToInitialState();
-    });
+        socket.on('connect_error', (error) => {
+            console.error('Socket ulanish xatosi:', error);
+            updateConnectionStatus('error');
+            reconnectAttempts++;
+            
+            if (reconnectAttempts >= maxReconnectAttempts) {
+                showMessage('Serverga ulanib boʻlmadi. Qayta urinib koʻring.', 'error');
+            }
+        });
 
-    socket.on('partner-skipped', () => {
-        showMessage('Sherik yangi sherik qidirayapti', 'info');
-        remoteStatusEl.textContent = 'Sherik ketdi';
-        remoteStatusEl.className = 'absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-amber-400';
-        resetToInitialState();
-    });
+        socket.on('reconnect', (attemptNumber) => {
+            console.log(`🔄 Qayta ulandi (${attemptNumber})`);
+            updateConnectionStatus('connected');
+            showMessage('Qayta ulandi!', 'success');
+        });
 
-    socket.on('partner-stopped', () => {
-        showMessage('Sherik suhbatni to\'xtatdi', 'info');
-        remoteStatusEl.textContent = 'Suhbat to\'xtatildi';
-        remoteStatusEl.className = 'absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-red-400';
-        resetToInitialState();
-        startSearching();
-    });
+        // Server event'lari
+        socket.on('online-count', (data) => {
+            onlineCountEl.textContent = data.total;
+        });
+
+        socket.on('registered', (data) => {
+            console.log('📝 Roʻyxatdan oʻtdi:', data.name);
+        });
+
+        socket.on('searching', () => {
+            showSearching();
+        });
+
+        socket.on('found', async (data) => {
+            console.log('🤝 Sherik topildi:', data);
+            isSearching = false;
+            partnerId = data.partnerId;
+            isInitiator = data.initiator;
+            matchId = data.matchId;
+            
+            partnerLabel.textContent = data.partnerName;
+            skipBtn.disabled = false;
+            remoteStatusEl.textContent = 'Sherik topildi';
+            remoteStatusEl.className = 'absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-green-400';
+            
+            stopSearching();
+            showConnecting();
+            await startCall();
+        });
+
+        socket.on('offer', async (data) => {
+            console.log('📨 Offer qabul qilindi');
+            if (!pc) await startCall();
+            try {
+                await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                socket.emit('answer', { 
+                    to: data.from, 
+                    sdp: pc.localDescription, 
+                    matchId: data.matchId 
+                });
+            } catch (err) {
+                console.error('Offer error:', err);
+            }
+        });
+
+        socket.on('answer', async (data) => {
+            console.log('📨 Answer qabul qilindi');
+            try {
+                await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+            } catch (err) {
+                console.error('Answer error:', err);
+            }
+        });
+
+        socket.on('ice-candidate', async (data) => {
+            try {
+                if (data.candidate) {
+                    await pc.addIceCandidate(data.candidate);
+                }
+            } catch (err) {
+                console.warn('ICE candidate error:', err);
+            }
+        });
+
+        socket.on('partner-disconnected', () => {
+            console.log('👋 Sherik chiqib ketdi');
+            showMessage('Sherik aloqani uzdi', 'info');
+            remoteStatusEl.textContent = 'Sherik chiqdi';
+            remoteStatusEl.className = 'absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-red-400';
+            resetToInitialState();
+        });
+
+        socket.on('partner-skipped', () => {
+            console.log('⏭️ Sherik keyingisiga oʻtdi');
+            showMessage('Sherik yangi sherik qidirayapti', 'info');
+            remoteStatusEl.textContent = 'Sherik ketdi';
+            remoteStatusEl.className = 'absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-amber-400';
+            resetToInitialState();
+        });
+
+        socket.on('partner-stopped', () => {
+            console.log('⏹️ Sherik toʻxtatdi');
+            showMessage('Sherik suhbatni to\'xtatdi', 'info');
+            remoteStatusEl.textContent = 'Suhbat to\'xtatildi';
+            remoteStatusEl.className = 'absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-red-400';
+            resetToInitialState();
+            startSearching();
+        });
+
+    } catch (error) {
+        console.error('Socket init error:', error);
+        showMessage('Socket initialization error', 'error');
+    }
 }
 
 // Yangi funksiya: Boshlang'ich holatga qaytarish
@@ -445,12 +487,17 @@ function resetToInitialState() {
 }
 
 // Status functions
-function updateStatus(status) {
-    const statusEl = document.querySelector('.pulse-ring');
+function updateConnectionStatus(status) {
+    const statusEl = connectionStatusEl;
     if (status === 'connected') {
         statusEl.className = 'w-2 h-2 bg-green-400 rounded-full pulse-ring';
-    } else {
+        statusEl.title = 'Ulangan';
+    } else if (status === 'disconnected') {
         statusEl.className = 'w-2 h-2 bg-red-400 rounded-full';
+        statusEl.title = 'Uzilgan';
+    } else {
+        statusEl.className = 'w-2 h-2 bg-yellow-400 rounded-full';
+        statusEl.title = 'Xato';
     }
 }
 
@@ -556,11 +603,15 @@ function createPeerConnection() {
     pc = new RTCPeerConnection({
         iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' }
         ]
     });
 
     pc.ontrack = (event) => {
+        console.log('🎥 Remote stream qabul qilindi');
         const remoteStream = event.streams[0];
         remoteVideo.srcObject = remoteStream;
         remoteVideo.play().then(() => {
@@ -580,6 +631,11 @@ function createPeerConnection() {
 
     pc.onconnectionstatechange = () => {
         console.log('WebRTC holati:', pc.connectionState);
+        if (pc.connectionState === 'connected') {
+            showConnected();
+        } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+            showMessage('Sherik bilan aloqa uzildi', 'warning');
+        }
     };
 }
 
@@ -594,10 +650,13 @@ function resetPeerConnection() {
 // Event listeners
 startBtn.addEventListener('click', async () => {
     if (!socket || !socket.connected) {
+        console.log('🔄 Socket ulanmagan, yangilayapman...');
         initSocket();
         setTimeout(() => {
             if (socket && socket.connected) {
                 startSearchProcess();
+            } else {
+                showMessage('Serverga ulanib boʻlmadi', 'error');
             }
         }, 1000);
     } else {
@@ -611,6 +670,7 @@ async function startSearchProcess() {
         socket.emit('find');
         showSearching();
     } catch (err) {
+        console.error('Start search error:', err);
         showPermissionModal();
     }
 }
@@ -679,7 +739,7 @@ function hideNameModal() {
 function setDefaultName() {
     localStorage.setItem('neochat_name', 'Mehmon');
     hideNameModal();
-    if (socket) {
+    if (socket && socket.connected) {
         socket.emit('register', { name: 'Mehmon' });
     }
 }
@@ -689,7 +749,7 @@ function saveName() {
     if (name) {
         localStorage.setItem('neochat_name', name.slice(0, 20));
         hideNameModal();
-        if (socket) {
+        if (socket && socket.connected) {
             socket.emit('register', { name: name.slice(0, 20) });
         }
     } else {
@@ -707,16 +767,22 @@ function closePermissionModal() {
 
 async function requestMediaPermission() {
     closePermissionModal();
-    await ensureLocalPreview();
+    try {
+        await ensureLocalPreview();
+        showMessage('Kamera va mikrofon ruxsati berildi!', 'success');
+    } catch (err) {
+        showMessage('Ruxsat berilmadi', 'error');
+    }
 }
 
 // Init
 window.addEventListener('load', () => {
+    console.log('🚀 NeoChatUz yuklandi');
     initSocket();
     
     const savedName = localStorage.getItem('neochat_name');
     if (!savedName) {
-        showNameModal();
+        setTimeout(showNameModal, 1000);
     }
 
     nameInput.addEventListener('keypress', (e) => {
@@ -737,6 +803,15 @@ function handleResize() {
 
 window.addEventListener('resize', handleResize);
 handleResize();
+
+// Saytga kirganda test qilish
+window.addEventListener('load', () => {
+    // Server health tekshirish
+    fetch('/health')
+        .then(r => r.json())
+        .then(data => console.log('🏥 Server health:', data))
+        .catch(err => console.log('❌ Health check failed:', err));
+});
   </script>
 </body>
 </html>
