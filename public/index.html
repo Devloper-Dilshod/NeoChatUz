@@ -6,56 +6,30 @@
   <title>NeoChatUz</title>
   <link rel="icon" type="image/png" sizes="32x32" href="/images/image.png">
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   
   <style>
-    /* Glass effect */
     .glass {
       backdrop-filter: blur(14px);
       background: rgba(255, 255, 255, 0.07);
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
     
-    /* Neon border glow */
     .neon {
       box-shadow: 0 0 15px rgba(0, 170, 255, 0.6),
       0 0 30px rgba(0, 170, 255, 0.4);
     }
     
-    /* 3D hover effect */
     .hover-3d:hover {
       transform: translateY(-6px) rotateX(3deg);
       transition: 0.25s ease;
     }
     
-    /* Input text color */
-    input, textarea {
-      color: #000000 !important;
-      background-color: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.3);
-      padding: 0.5rem 1rem;
-      border-radius: 0.75rem;
-      outline: none;
-      transition: 0.3s;
-    }
-    
-    input:focus {
-      border-color: #0ea5e9;
-      box-shadow: 0 0 10px rgba(14,165,233,0.5);
-      background-color: rgba(255,255,255,0.15);
-    }
-    
-    input::placeholder,
-    textarea::placeholder {
-      color: rgba(0,0,0,0.5) !important;
-    }
-    
-    /* Button hover animation */
     .btn-hover:hover {
       transform: scale(1.05);
       transition: 0.3s;
     }
     
-    /* Footer Dasturchi button */
     .developer-btn {
       background: linear-gradient(90deg, #0ea5e9, #6366f1);
       color: white;
@@ -67,7 +41,6 @@
       transition: 0.3s;
     }
     
-    /* Smooth fade-in animation */
     .fade-in {
       opacity: 0;
       animation: fadeIn 1s forwards;
@@ -76,124 +49,693 @@
     @keyframes fadeIn {
       to { opacity: 1; }
     }
+
+    video {
+      background: #1f2937;
+      border-radius: 12px;
+    }
+
+    /* Mobile optimizatsiya */
+    @media (max-width: 768px) {
+      .mobile-stack {
+        flex-direction: column;
+      }
+      .mobile-full {
+        width: 100%;
+      }
+      .mobile-padding {
+        padding: 1rem;
+      }
+    }
+
+    /* Modal styling */
+    .modal-overlay {
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(5px);
+    }
+
+    .modal-content {
+      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Loading animation */
+    .pulse-ring {
+      animation: pulseRing 2s ease-in-out infinite;
+    }
+
+    @keyframes pulseRing {
+      0% { transform: scale(0.8); opacity: 0.8; }
+      50% { transform: scale(1.2); opacity: 0.4; }
+      100% { transform: scale(0.8); opacity: 0.8; }
+    }
   </style>
 </head>
 
 <body class="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 text-white">
   
+  <!-- Name Modal -->
+  <div id="nameModal" class="fixed inset-0 modal-overlay flex items-center justify-center z-50 hidden">
+    <div class="modal-content rounded-2xl p-6 mx-4 max-w-md w-full glass neon">
+      <div class="text-center mb-6">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 flex items-center justify-center">
+          <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+          </svg>
+        </div>
+        <h3 class="text-xl font-bold text-white mb-2">Ismingizni kiriting</h3>
+        <p class="text-slate-300 text-sm">Bu ism sherigingizga ko'rinadi</p>
+      </div>
+      
+      <input 
+        id="nameInput" 
+        type="text" 
+        placeholder="Sizning ismingiz" 
+        maxlength="20"
+        class="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
+      >
+      
+      <div class="flex gap-3 mt-6">
+        <button 
+          onclick="setDefaultName()"
+          class="flex-1 px-4 py-3 bg-slate-600 hover:bg-slate-500 rounded-xl transition-all font-medium"
+        >
+          Mehmon
+        </button>
+        <button 
+          onclick="saveName()"
+          class="flex-1 px-4 py-3 bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 rounded-xl transition-all font-medium"
+        >
+          Saqlash
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Permission Modal -->
+  <div id="permissionModal" class="fixed inset-0 modal-overlay flex items-center justify-center z-50 hidden">
+    <div class="modal-content rounded-2xl p-6 mx-4 max-w-md w-full glass neon">
+      <div class="text-center mb-6">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 flex items-center justify-center">
+          <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+          </svg>
+        </div>
+        <h3 class="text-xl font-bold text-white mb-2">Kamera va Mikrofon Ruxsati</h3>
+        <p class="text-slate-300 text-sm">Video suhbat uchun kamerangiz va mikrofoningizga ruxsat kerak</p>
+      </div>
+      
+      <div class="flex gap-3 mt-6">
+        <button 
+          onclick="closePermissionModal()"
+          class="flex-1 px-4 py-3 bg-slate-600 hover:bg-slate-500 rounded-xl transition-all font-medium"
+        >
+          Bekor qilish
+        </button>
+        <button 
+          onclick="requestMediaPermission()"
+          class="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400 rounded-xl transition-all font-medium"
+        >
+          Ruxsat berish
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- HEADER -->
-  <header class="py-6 glass border-b border-white/10 fade-in">
+  <header class="py-4 glass border-b border-white/10 fade-in">
     <div class="max-w-7xl mx-auto px-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <!-- Logo o'zgartirilgan -->
-        <div class="w-11 h-11 rounded-full flex items-center justify-center shadow-xl neon overflow-hidden">
+        <div class="w-10 h-10 rounded-full flex items-center justify-center shadow-xl neon overflow-hidden">
           <img src="/images/image.png" alt="NeoChatUz Logo" class="w-full h-full object-cover">
         </div>
         
-        <div>
-          <div class="text-xl font-semibold tracking-wide">NeoChatUz</div>
+        <div class="hidden sm:block">
+          <div class="text-lg font-semibold tracking-wide">NeoChatUz</div>
           <div class="text-xs text-sky-300 opacity-80">Tasodif bilan do'st ortiring!</div>
         </div>
       </div>
       
       <div class="flex items-center gap-2">
-        <svg class="w-5 h-5 text-sky-300" fill="none" stroke="currentColor" stroke-width="2"
-        viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round"
-        d="M18 8a6 6 0 11-12 0 6 6 0 0112 0zM12 14c-5 0-9 2.5-9 5v1h18v-1c0-2.5-4-5-9-5z"/>
-      </svg>
-      <span class="text-sm text-sky-200">Online:</span>
-      <div id="onlineCount" class="font-mono bg-slate-800/60 text-sky-200 px-3 py-1 rounded">0</div>
+        <div class="w-2 h-2 bg-green-400 rounded-full pulse-ring"></div>
+        <span class="text-sm text-sky-200 hidden sm:block">Online:</span>
+        <div id="onlineCount" class="font-mono bg-slate-800/60 text-sky-200 px-3 py-1 rounded-lg">0</div>
+      </div>
     </div>
-  </div>
-</header>
+  </header>
 
-<!-- MAIN -->
-<main class="flex-1 max-w-7xl mx-auto px-4 py-6 flex flex-col md:flex-row gap-6 fade-in">
-  
-  <!-- VIDEO SECTION -->
-  <section class="flex-1 flex flex-col items-center justify-start gap-6">
+  <!-- MAIN -->
+  <main class="flex-1 max-w-7xl mx-auto w-full px-4 py-6 flex flex-col md:flex-row gap-6 fade-in mobile-stack">
     
-    <!-- NAME INPUT -->
-    
-    
-    <!-- VIDEO GRID -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+    <!-- VIDEO SECTION -->
+    <section class="flex-1 flex flex-col items-center justify-start gap-6 mobile-full">
       
-      <div class="glass neon rounded-xl overflow-hidden relative shadow-2xl hover-3d">
-        <video id="localVideo" playsinline autoplay muted class="w-full h-full object-cover"></video>
-        <div class="absolute left-3 top-3 bg-black/40 px-3 py-1 rounded text-xs">Siz</div>
+      <!-- VIDEO GRID -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+        
+        <!-- Local Video -->
+        <div class="glass neon rounded-xl overflow-hidden relative shadow-2xl hover-3d">
+          <video id="localVideo" playsinline autoplay muted class="w-full h-48 sm:h-64 md:h-80 object-cover"></video>
+          <div class="absolute left-3 top-3 bg-black/60 px-3 py-1 rounded-lg text-sm font-medium">Siz</div>
+          <div id="localStatus" class="absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-amber-400">Kamera o'chirilgan</div>
+        </div>
+        
+        <!-- Remote Video -->
+        <div class="glass neon rounded-xl overflow-hidden relative shadow-2xl hover-3d">
+          <video id="remoteVideo" playsinline autoplay class="w-full h-48 sm:h-64 md:h-80 object-cover"></video>
+          <div class="absolute left-3 top-3 bg-black/60 px-3 py-1 rounded-lg text-sm font-medium" id="partnerLabel">Sherik</div>
+          <div id="remoteStatus" class="absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-slate-400">Kutilmoqda</div>
+        </div>
+        
       </div>
       
-      <div class="glass neon rounded-xl overflow-hidden relative shadow-2xl hover-3d">
-        <video id="remoteVideo" playsinline autoplay class="w-full h-full object-cover"></video>
-        <div class="absolute left-3 top-3 bg-black/40 px-3 py-1 rounded text-xs" id="partnerLabel">Sherik</div>
+      <!-- CONTROL BUTTONS -->
+      <div class="flex items-center gap-3 mt-4 flex-wrap justify-center mobile-full mobile-padding">
+        
+        <button id="stopBtn" disabled class="px-5 py-3 rounded-xl bg-red-500/80 hover:bg-red-600 transition-all shadow-lg flex items-center gap-2 btn-hover font-medium mobile-full sm:mobile-full">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6h12v12H6z"/>
+          </svg>
+          To'xtatish
+        </button>
+        
+        <button id="startBtn" class="px-6 py-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 transition-all shadow-xl neon flex items-center gap-2 font-semibold btn-hover mobile-full sm:mobile-full">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3l14 9-14 9V3z"/>
+          </svg>
+          Boshlash
+        </button>
+        
+        <button id="skipBtn" disabled class="px-5 py-3 rounded-xl bg-amber-500/80 hover:bg-amber-600 transition-all shadow-lg flex items-center gap-2 btn-hover font-medium mobile-full sm:mobile-full">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 4l10 8-10 8V4zM15 4l10 8-10 8V4z"/>
+          </svg>
+          Keyingi
+        </button>
+        
+      </div>
+
+      <!-- STATUS MESSAGES -->
+      <div id="searching" class="mt-4 min-h-[60px] text-center w-full mobile-padding"></div>
+
+    </section>
+
+    <!-- SIDEBAR -->
+    <aside class="w-full md:w-80 flex flex-col gap-4 mobile-full">
+      
+      <div class="glass p-4 rounded-xl shadow-xl fade-in">
+        <h3 class="text-sky-200 font-semibold mb-3 flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Qanday foydalanish
+        </h3>
+        <ul class="text-sm text-slate-200 space-y-3">
+          <li class="flex items-start gap-2">
+            <span class="bg-sky-500/20 text-sky-300 rounded px-2 py-1 text-xs">1</span>
+            <span>"Boshlash" tugmasini bosing</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="bg-sky-500/20 text-sky-300 rounded px-2 py-1 text-xs">2</span>
+            <span>Kamera/mikrofon ruxsatini bering</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="bg-sky-500/20 text-sky-300 rounded px-2 py-1 text-xs">3</span>
+            <span>Tasodifiy sherik bilan suhbat</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="bg-amber-500/20 text-amber-300 rounded px-2 py-1 text-xs">⚠</span>
+            <span>Shaxsiy ma'lumot bermang</span>
+          </li>
+        </ul>
       </div>
       
-    </div>
-    
-    <!-- CONTROL BUTTONS -->
-    <div class="flex items-center gap-4 mt-4 flex-wrap justify-center">
+      <div class="glass p-4 rounded-xl shadow-xl">
+        <h3 class="text-sky-200 font-semibold mb-3 flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+          Xavfsizlik
+        </h3>
+        <ul class="text-xs text-slate-300 space-y-2">
+          <li>• Shaxsiy ma'lumotlaringizni himoya qiling</li>
+          <li>• Ismingizni o'zgartirishingiz mumkin</li>
+          <li>• Noqulay sherikni "Keyingi" tugmasi bilan o'tkazib yuboring</li>
+        </ul>
+      </div>
       
-      <button id="stopBtn" disabled
-      class="px-6 py-3 rounded-xl bg-red-500/70 hover:bg-red-600 transition shadow-lg flex items-center gap-2 btn-hover">
-      <svg class="w-5 h-5" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round"
-        d="M6 6h12v12H6z"/>
-      </svg>
-      To'xtatish
-    </button>
+    </aside>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="p-4 text-center text-xs text-gray-400 flex flex-col items-center gap-2 fade-in">
+    <span>© 2025 NeoChatUz – Barcha huquqlar himoyalangan</span>
+    <a href="https://t.me/dilshod_sayfiddinov" target="_blank" class="px-4 py-2 rounded-xl developer-btn font-semibold transition-all">
+      Dasturchi bilan bog'lanish
+    </a>
+  </footer>
+
+  <script>
+// script.js - To'liq responsive va modal bilan
+let socket = null;
+
+// UI elements
+const onlineCountEl = document.getElementById('onlineCount');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const searchingEl = document.getElementById('searching');
+const localVideo = document.getElementById('localVideo');
+const remoteVideo = document.getElementById('remoteVideo');
+const skipBtn = document.getElementById('skipBtn');
+const partnerLabel = document.getElementById('partnerLabel');
+const localStatusEl = document.getElementById('localStatus');
+const remoteStatusEl = document.getElementById('remoteStatus');
+const nameModal = document.getElementById('nameModal');
+const permissionModal = document.getElementById('permissionModal');
+const nameInput = document.getElementById('nameInput');
+
+let localStream = null;
+let pc = null;
+let partnerId = null;
+let isInitiator = false;
+let matchId = null;
+let isSearching = false;
+
+// Socket ulanishi
+function initSocket() {
+    socket = io('http://localhost:5000', {
+        transports: ['websocket', 'polling']
+    });
+
+    socket.on('connect', () => {
+        console.log('✅ Serverga ulandik!');
+        updateStatus('connected');
+        const savedName = localStorage.getItem('neochat_name') || 'Mehmon';
+        socket.emit('register', { name: savedName });
+    });
+
+    socket.on('disconnect', () => {
+        console.log('❌ Server bilan aloqa uzildi');
+        updateStatus('disconnected');
+    });
+
+    socket.on('online-count', (data) => {
+        onlineCountEl.textContent = data.total;
+    });
+
+    socket.on('searching', () => {
+        showSearching();
+    });
+
+    socket.on('found', async (data) => {
+        isSearching = false;
+        partnerId = data.partnerId;
+        isInitiator = data.initiator;
+        matchId = data.matchId;
+        
+        partnerLabel.textContent = data.partnerName;
+        skipBtn.disabled = false;
+        remoteStatusEl.textContent = 'Sherik topildi';
+        remoteStatusEl.className = 'absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-green-400';
+        
+        stopSearching();
+        showConnecting();
+        await startCall();
+    });
+
+    socket.on('offer', async (data) => {
+        if (!pc) await startCall();
+        try {
+            await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            socket.emit('answer', { 
+                to: data.from, 
+                sdp: pc.localDescription, 
+                matchId: data.matchId 
+            });
+        } catch (err) {
+            console.error('Offer error:', err);
+        }
+    });
+
+    socket.on('answer', async (data) => {
+        try {
+            await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        } catch (err) {
+            console.error('Answer error:', err);
+        }
+    });
+
+    socket.on('ice-candidate', async (data) => {
+        try {
+            if (data.candidate) {
+                await pc.addIceCandidate(data.candidate);
+            }
+        } catch (err) {
+            console.warn('ICE candidate error:', err);
+        }
+    });
+
+    socket.on('partner-disconnected', () => {
+        showMessage('Sherik aloqani uzdi', 'info');
+        remoteStatusEl.textContent = 'Sherik chiqdi';
+        remoteStatusEl.className = 'absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-red-400';
+        resetToInitialState();
+    });
+
+    socket.on('partner-skipped', () => {
+        showMessage('Sherik yangi sherik qidirayapti', 'info');
+        remoteStatusEl.textContent = 'Sherik ketdi';
+        remoteStatusEl.className = 'absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-amber-400';
+        resetToInitialState();
+    });
+
+    socket.on('partner-stopped', () => {
+        showMessage('Sherik suhbatni to\'xtatdi', 'info');
+        remoteStatusEl.textContent = 'Suhbat to\'xtatildi';
+        remoteStatusEl.className = 'absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-red-400';
+        resetToInitialState();
+        // Sherik to'xtatganda, o'zimiz ham qidirishni boshlaymiz
+        startSearching();
+    });
+}
+
+// Yangi funksiya: Boshlang'ich holatga qaytarish
+function resetToInitialState() {
+    resetPeerConnection();
+    partnerId = null;
+    matchId = null;
+    isSearching = false;
     
-    <button id="startBtn"
-    class="px-8 py-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 transition shadow-xl neon flex items-center gap-2 font-semibold btn-hover">
-    <svg class="w-6 h-6" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round"
-      d="M5 3l14 9-14 9V3z"/>
-    </svg>
-    Boshlash
-  </button>
-  
-  <button id="skipBtn" disabled
-  class="px-6 py-3 rounded-xl bg-yellow-500/70 hover:bg-yellow-600 transition shadow-lg flex items-center gap-2 btn-hover">
-  <svg class="w-5 h-5" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24">
-    <path stroke-linecap="round" stroke-linejoin="round"
-    d="M5 4l10 8-10 8V4zM15 4l10 8-10 8V4z"/>
-  </svg>
-  Keyingi
-</button>
-</div>
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    skipBtn.disabled = true;
+    
+    stopSearching();
+    remoteStatusEl.textContent = 'Kutilmoqda';
+    remoteStatusEl.className = 'absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-slate-400';
+    partnerLabel.textContent = 'Sherik';
+}
 
-<div id="searching" class="mt-2 min-h-[46px] text-center text-sky-300"></div>
+// Status functions
+function updateStatus(status) {
+    const statusEl = document.querySelector('.pulse-ring');
+    if (status === 'connected') {
+        statusEl.className = 'w-2 h-2 bg-green-400 rounded-full pulse-ring';
+    } else {
+        statusEl.className = 'w-2 h-2 bg-red-400 rounded-full';
+    }
+}
 
-</section>
+function showMessage(message, type = 'info') {
+    const colors = {
+        info: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+        success: 'bg-green-500/20 text-green-300 border-green-500/30',
+        warning: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+        error: 'bg-red-500/20 text-red-300 border-red-500/30'
+    };
 
-<!-- SIDEBAR -->
-<aside class="w-full md:w-80 flex flex-col gap-4">
-  
-  <div class="glass p-4 rounded-xl shadow-xl fade-in">
-    <h3 class="text-sky-200 font-semibold mb-2">Qanday foydalanish</h3>
-    <ul class="text-sm text-slate-200 space-y-2">
-      <li>1️⃣ Ismingizni kiriting.</li>
-      <li>2️⃣ Boshlash tugmasini bosing.</li>
-      <li>3️⃣ Tasodifiy sherik bilan video suhbatni boshlang.</li>
-      <li>⚠️ Shaxsiy ma’lumot bermang.</li>
-    </ul>
-  </div>
-  
-  <div class="glass p-3 text-xs text-slate-400 rounded-xl text-center">
-    NeoChatUz - bu sizga dunyo bo'ylab tasodifiy odamlar bilan video orqali bog'lanish imkonini beruvchi platforma. Iltimos, xavfsizlik qoidalariga rioya qiling va shaxsiy ma'lumotlaringizni oshkor qilmang.
-  </div>
-</aside>
-</main>
+    const messageEl = document.createElement('div');
+    messageEl.className = `fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-xl border backdrop-blur-lg ${colors[type]} transition-all duration-300`;
+    messageEl.textContent = message;
+    document.body.appendChild(messageEl);
 
-<!-- FOOTER -->
-<footer class="p-6 text-center text-xs text-gray-400 flex flex-col items-center gap-2 fade-in">
-  <span>© 2025 NeoChatUz – All rights reserved</span>
-  <a href="https://t.me/dilshod_sayfiddinov" target="_blank"
-  class="px-4 py-2 rounded-xl developer-btn font-semibold">Dasturchi bilan bog'lanish</a>
-</footer>
+    setTimeout(() => {
+        messageEl.remove();
+    }, 3000);
+}
 
-<script src="/socket.io/socket.io.js"></script>
-<script src="/script.js"></script>
+// UI functions
+function showSearching() {
+    isSearching = true;
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    searchingEl.innerHTML = `
+        <div class="flex flex-col items-center gap-3 text-sky-300">
+            <div class="w-12 h-12 border-4 border-sky-400 border-t-transparent rounded-full animate-spin"></div>
+            <div class="text-center">
+                <div class="font-semibold text-lg">Sherik qidirilmoqda</div>
+                <div class="text-sm text-slate-300 mt-1">Iltimos sabr bilan kuting</div>
+            </div>
+        </div>`;
+    remoteStatusEl.textContent = 'Sherik qidirilmoqda';
+    remoteStatusEl.className = 'absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-sky-400';
+}
+
+function stopSearching() {
+    searchingEl.innerHTML = '';
+}
+
+function showConnecting() {
+    searchingEl.innerHTML = `
+        <div class="flex flex-col items-center gap-3 text-amber-300">
+            <div class="w-10 h-10 border-3 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
+            <div class="font-semibold">Sherik bilan ulanilmoqda...</div>
+        </div>`;
+}
+
+function showConnected() {
+    searchingEl.innerHTML = `
+        <div class="flex flex-col items-center gap-3 text-green-400">
+            <div class="w-8 h-8 bg-green-400 rounded-full flex items-center justify-center">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+            <div class="font-semibold">Muvaffaqiyatli ulandingiz!</div>
+        </div>`;
+    remoteStatusEl.textContent = 'Ulangan';
+    remoteStatusEl.className = 'absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-green-400';
+}
+
+// WebRTC functions
+async function startCall() {
+    try {
+        if (!localStream) {
+            await ensureLocalPreview();
+            socket.emit('media-ready', { ready: true });
+        }
+
+        resetPeerConnection();
+        createPeerConnection();
+
+        localStream.getTracks().forEach(track => {
+            pc.addTrack(track, localStream);
+        });
+
+        if (isInitiator) {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socket.emit('offer', { 
+                to: partnerId, 
+                sdp: pc.localDescription, 
+                matchId: matchId 
+            });
+        }
+
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        skipBtn.disabled = false;
+
+    } catch (err) {
+        console.error('Start call error:', err);
+        if (err.name === 'NotAllowedError') {
+            showPermissionModal();
+        }
+    }
+}
+
+function createPeerConnection() {
+    pc = new RTCPeerConnection({
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+        ]
+    });
+
+    pc.ontrack = (event) => {
+        const remoteStream = event.streams[0];
+        remoteVideo.srcObject = remoteStream;
+        remoteVideo.play().then(() => {
+            showConnected();
+        }).catch(console.error);
+    };
+
+    pc.onicecandidate = (event) => {
+        if (event.candidate && partnerId) {
+            socket.emit('ice-candidate', {
+                to: partnerId,
+                candidate: event.candidate,
+                matchId: matchId
+            });
+        }
+    };
+
+    pc.onconnectionstatechange = () => {
+        console.log('WebRTC holati:', pc.connectionState);
+    };
+}
+
+function resetPeerConnection() {
+    if (pc) {
+        pc.close();
+        pc = null;
+    }
+    remoteVideo.srcObject = null;
+}
+
+// Event listeners
+startBtn.addEventListener('click', async () => {
+    if (!socket || !socket.connected) {
+        initSocket();
+        setTimeout(() => {
+            if (socket && socket.connected) {
+                startSearchProcess();
+            }
+        }, 1000);
+    } else {
+        startSearchProcess();
+    }
+});
+
+async function startSearchProcess() {
+    try {
+        await ensureLocalPreview();
+        socket.emit('find');
+        showSearching();
+    } catch (err) {
+        showPermissionModal();
+    }
+}
+
+// TO'XTATISH - Faqat o'zini to'xtatadi, sherik qidirmaydi
+stopBtn.addEventListener('click', () => {
+    if (partnerId && matchId) {
+        // Agar sherik bilan ulangan bo'lsa
+        socket.emit('stop-call', { to: partnerId, matchId: matchId });
+    } else if (isSearching) {
+        // Agar sherik qidiryotgan bo'lsa
+        socket.emit('stop-search');
+    }
+    
+    // Faqat o'z holatini yangilash
+    resetToInitialState();
+    showMessage('Siz suhbatni to\'xtatdingiz', 'info');
+});
+
+// SKIP - Yangi sherik qidiradi
+skipBtn.addEventListener('click', () => {
+    if (partnerId && matchId) {
+        socket.emit('skip', { to: partnerId, matchId: matchId });
+    }
+    resetToInitialState();
+    // Skip bosganda darrov yangi sherik qidirish
+    startSearching();
+});
+
+// Local media
+async function ensureLocalPreview() {
+    if (!localStream) {
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                },
+                video: {
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    facingMode: 'user'
+                }
+            });
+            localVideo.srcObject = localStream;
+            localStatusEl.textContent = 'Kamera yoqilgan';
+            localStatusEl.className = 'absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-green-400';
+            return localStream;
+        } catch (err) {
+            console.error('Media error:', err);
+            localStatusEl.textContent = 'Kamera xatosi';
+            localStatusEl.className = 'absolute right-3 top-3 bg-black/60 px-2 py-1 rounded-lg text-xs text-red-400';
+            throw err;
+        }
+    }
+    return localStream;
+}
+
+// Modal functions
+function showNameModal() {
+    nameModal.classList.remove('hidden');
+    nameInput.focus();
+}
+
+function hideNameModal() {
+    nameModal.classList.add('hidden');
+}
+
+function setDefaultName() {
+    localStorage.setItem('neochat_name', 'Mehmon');
+    hideNameModal();
+    if (socket) {
+        socket.emit('register', { name: 'Mehmon' });
+    }
+}
+
+function saveName() {
+    const name = nameInput.value.trim();
+    if (name) {
+        localStorage.setItem('neochat_name', name.slice(0, 20));
+        hideNameModal();
+        if (socket) {
+            socket.emit('register', { name: name.slice(0, 20) });
+        }
+    } else {
+        nameInput.focus();
+    }
+}
+
+function showPermissionModal() {
+    permissionModal.classList.remove('hidden');
+}
+
+function closePermissionModal() {
+    permissionModal.classList.add('hidden');
+}
+
+async function requestMediaPermission() {
+    closePermissionModal();
+    await ensureLocalPreview();
+}
+
+// Init
+window.addEventListener('load', () => {
+    initSocket();
+    
+    const savedName = localStorage.getItem('neochat_name');
+    if (!savedName) {
+        showNameModal();
+    }
+
+    // Enter bosganda name saqlash
+    nameInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            saveName();
+        }
+    });
+});
+
+// Mobile optimizatsiya
+function handleResize() {
+    if (window.innerWidth < 768) {
+        document.body.classList.add('mobile-view');
+    } else {
+        document.body.classList.remove('mobile-view');
+    }
+}
+
+window.addEventListener('resize', handleResize);
+handleResize();
+  </script>
 </body>
 </html>
